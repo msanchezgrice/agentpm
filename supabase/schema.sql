@@ -1,1 +1,241 @@
-\n-- Enable necessary extensions\nCREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";\n\n-- Create users table\nCREATE TABLE IF NOT EXISTS public.users (\n    id TEXT PRIMARY KEY, -- Clerk user ID\n    email TEXT UNIQUE NOT NULL,\n    name TEXT,\n    role TEXT DEFAULT 'user' CHECK (role IN ('admin', 'user', 'premium')),\n    permissions JSONB DEFAULT '{\"paper_trading\": true, \"live_trading\": false}'::jsonb,\n    alpaca_paper_key_encrypted TEXT,\n    alpaca_live_key_encrypted TEXT,\n    alpaca_paper_secret_encrypted TEXT,\n    alpaca_live_secret_encrypted TEXT,\n    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()),\n    subscription_tier TEXT DEFAULT 'free' CHECK (subscription_tier IN ('free', 'pro', 'enterprise')),\n    agent_limit INTEGER DEFAULT 5\n);\n\n-- Create strategies table\nCREATE TABLE IF NOT EXISTS public.strategies (\n    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,\n    user_id TEXT REFERENCES public.users(id) ON DELETE CASCADE,\n    name TEXT NOT NULL,\n    description TEXT,\n    type TEXT DEFAULT 'predefined' CHECK (type IN ('predefined', 'custom', 'marketplace')),\n    visibility TEXT DEFAULT 'private' CHECK (visibility IN ('private', 'public', 'marketplace')),\n    config JSONB NOT NULL,\n    performance_stats JSONB,\n    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW())\n);\n\n-- Create agents table\nCREATE TABLE IF NOT EXISTS public.agents (\n    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,\n    user_id TEXT REFERENCES public.users(id) ON DELETE CASCADE,\n    name TEXT NOT NULL,\n    strategy_id UUID REFERENCES public.strategies(id),\n    llm_model TEXT NOT NULL,\n    status TEXT DEFAULT 'stopped' CHECK (status IN ('active', 'paused', 'stopped')),\n    mode TEXT DEFAULT 'paper' CHECK (mode IN ('paper', 'live')),\n    max_position_size DECIMAL DEFAULT 1000,\n    daily_loss_limit DECIMAL DEFAULT 100,\n    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()),\n    CONSTRAINT check_mode CHECK (\n        (mode = 'paper') OR \n        (mode = 'live' AND EXISTS (\n            SELECT 1 FROM users \n            WHERE id = user_id \n            AND (permissions->>'live_trading')::boolean = true\n        ))\n    )\n);\n\n-- Create trading_sessions table\nCREATE TABLE IF NOT EXISTS public.trading_sessions (\n    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,\n    agent_id UUID REFERENCES public.agents(id) ON DELETE CASCADE,\n    start_time TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()),\n    end_time TIMESTAMP WITH TIME ZONE,\n    initial_balance DECIMAL,\n    final_balance DECIMAL\n);\n\n-- Create trades table\nCREATE TABLE IF NOT EXISTS public.trades (\n    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,\n    agent_id UUID REFERENCES public.agents(id) ON DELETE CASCADE,\n    session_id UUID REFERENCES public.trading_sessions(id),\n    symbol TEXT NOT NULL,\n    side TEXT NOT NULL CHECK (side IN ('buy', 'sell', 'buy_to_cover', 'sell_short')),\n    quantity DECIMAL NOT NULL,\n    price DECIMAL NOT NULL,\n    timestamp TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()),\n    reasoning TEXT,\n    sentiment_score DECIMAL\n);\n\n-- Create performance_metrics table\nCREATE TABLE IF NOT EXISTS public.performance_metrics (\n    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,\n    agent_id UUID REFERENCES public.agents(id) ON DELETE CASCADE,\n    date DATE NOT NULL,\n    total_return DECIMAL NOT NULL,\n    sharpe_ratio DECIMAL,\n    max_drawdown DECIMAL,\n    win_rate DECIMAL,\n    trades_count INTEGER DEFAULT 0,\n    UNIQUE(agent_id, date)\n);\n\n-- Create audit_logs table\nCREATE TABLE IF NOT EXISTS public.audit_logs (\n    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,\n    user_id TEXT REFERENCES public.users(id),\n    action TEXT NOT NULL,\n    details JSONB,\n    ip_address TEXT,\n    timestamp TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW())\n);\n\n-- Create subscription_tiers table\nCREATE TABLE IF NOT EXISTS public.subscription_tiers (\n    tier TEXT PRIMARY KEY,\n    agent_limit INTEGER NOT NULL,\n    paper_trading BOOLEAN NOT NULL,\n    live_trading BOOLEAN NOT NULL,\n    api_calls_per_month INTEGER NOT NULL,\n    advanced_strategies BOOLEAN NOT NULL,\n    custom_strategies BOOLEAN NOT NULL,\n    price_monthly DECIMAL NOT NULL\n);\n\n-- Insert default subscription tiers\nINSERT INTO public.subscription_tiers (tier, agent_limit, paper_trading, live_trading, api_calls_per_month, advanced_strategies, custom_strategies, price_monthly) VALUES\n('free', 5, true, false, 10000, false, false, 0),\n('pro', 25, true, true, 100000, true, true, 49),\n('enterprise', 999, true, true, 9999999, true, true, 299)\nON CONFLICT (tier) DO NOTHING;\n\n-- Row Level Security (RLS)\nALTER TABLE public.users ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.strategies ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.agents ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.trades ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.performance_metrics ENABLE ROW LEVEL SECURITY;\nALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;\n\n-- Users can only see their own data\nCREATE POLICY \"Users can view own data\" ON public.users\n    FOR SELECT USING (auth.uid()::text = id);\n\nCREATE POLICY \"Users can update own data\" ON public.users\n    FOR UPDATE USING (auth.uid()::text = id);\n\n-- Strategies policies\nCREATE POLICY \"Users can view own strategies\" ON public.strategies\n    FOR SELECT USING (auth.uid()::text = user_id OR visibility IN ('public', 'marketplace'));\n\nCREATE POLICY \"Users can create strategies\" ON public.strategies\n    FOR INSERT WITH CHECK (auth.uid()::text = user_id);\n\nCREATE POLICY \"Users can update own strategies\" ON public.strategies\n    FOR UPDATE USING (auth.uid()::text = user_id);\n\nCREATE POLICY \"Users can delete own strategies\" ON public.strategies\n    FOR DELETE USING (auth.uid()::text = user_id);\n\n-- Agents policies\nCREATE POLICY \"Users can view own agents\" ON public.agents\n    FOR SELECT USING (auth.uid()::text = user_id);\n\nCREATE POLICY \"Users can create agents within limits\" ON public.agents\n    FOR INSERT WITH CHECK (\n        auth.uid()::text = user_id AND\n        (SELECT COUNT(*) FROM agents WHERE user_id = auth.uid()::text) < \n        (SELECT agent_limit FROM users WHERE id = auth.uid()::text)\n    );\n\nCREATE POLICY \"Users can update own agents\" ON public.agents\n    FOR UPDATE USING (auth.uid()::text = user_id);\n\nCREATE POLICY \"Users can delete own agents\" ON public.agents\n    FOR DELETE USING (auth.uid()::text = user_id);\n\n-- Trades policies\nCREATE POLICY \"Users can view own trades\" ON public.trades\n    FOR SELECT USING (\n        EXISTS (\n            SELECT 1 FROM agents \n            WHERE agents.id = trades.agent_id \n            AND agents.user_id = auth.uid()::text\n        )\n    );\n\n-- Performance metrics policies\nCREATE POLICY \"Users can view own metrics\" ON public.performance_metrics\n    FOR SELECT USING (\n        EXISTS (\n            SELECT 1 FROM agents \n            WHERE agents.id = performance_metrics.agent_id \n            AND agents.user_id = auth.uid()::text\n        )\n    );\n\n-- Audit logs policies (users can only see their own logs)\nCREATE POLICY \"Users can view own audit logs\" ON public.audit_logs\n    FOR SELECT USING (auth.uid()::text = user_id);\n\n-- Create indexes for better performance\nCREATE INDEX idx_strategies_user_id ON public.strategies(user_id);\nCREATE INDEX idx_agents_user_id ON public.agents(user_id);\nCREATE INDEX idx_agents_strategy_id ON public.agents(strategy_id);\nCREATE INDEX idx_trades_agent_id ON public.trades(agent_id);\nCREATE INDEX idx_
+-- Enable necessary extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Create users table
+CREATE TABLE IF NOT EXISTS public.users (
+    id TEXT PRIMARY KEY, -- Clerk user ID
+    email TEXT UNIQUE NOT NULL,
+    name TEXT,
+    role TEXT DEFAULT 'user' CHECK (role IN ('admin', 'user', 'premium')),
+    permissions JSONB DEFAULT '{"paper_trading": true, "live_trading": false}'::jsonb,
+    alpaca_paper_key_encrypted TEXT,
+    alpaca_live_key_encrypted TEXT,
+    alpaca_paper_secret_encrypted TEXT,
+    alpaca_live_secret_encrypted TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()),
+    subscription_tier TEXT DEFAULT 'free' CHECK (subscription_tier IN ('free', 'pro', 'enterprise')),
+    agent_limit INTEGER DEFAULT 5
+);
+
+-- Create strategies table
+CREATE TABLE IF NOT EXISTS public.strategies (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id TEXT REFERENCES public.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    description TEXT,
+    type TEXT DEFAULT 'predefined' CHECK (type IN ('predefined', 'custom', 'marketplace')),
+    visibility TEXT DEFAULT 'private' CHECK (visibility IN ('private', 'public', 'marketplace')),
+    config JSONB NOT NULL,
+    performance_stats JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW())
+);
+
+-- Create agents table (removed problematic CHECK constraint with subquery)
+CREATE TABLE IF NOT EXISTS public.agents (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id TEXT REFERENCES public.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    strategy_id UUID REFERENCES public.strategies(id),
+    llm_model TEXT NOT NULL,
+    status TEXT DEFAULT 'stopped' CHECK (status IN ('active', 'paused', 'stopped')),
+    mode TEXT DEFAULT 'paper' CHECK (mode IN ('paper', 'live')),
+    max_position_size DECIMAL DEFAULT 1000,
+    daily_loss_limit DECIMAL DEFAULT 100,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW())
+);
+
+-- Create trading_sessions table
+CREATE TABLE IF NOT EXISTS public.trading_sessions (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    agent_id UUID REFERENCES public.agents(id) ON DELETE CASCADE,
+    start_time TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()),
+    end_time TIMESTAMP WITH TIME ZONE,
+    initial_balance DECIMAL,
+    final_balance DECIMAL
+);
+
+-- Create trades table
+CREATE TABLE IF NOT EXISTS public.trades (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    agent_id UUID REFERENCES public.agents(id) ON DELETE CASCADE,
+    session_id UUID REFERENCES public.trading_sessions(id),
+    symbol TEXT NOT NULL,
+    side TEXT NOT NULL CHECK (side IN ('buy', 'sell', 'buy_to_cover', 'sell_short')),
+    quantity DECIMAL NOT NULL,
+    price DECIMAL NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()),
+    reasoning TEXT,
+    sentiment_score DECIMAL
+);
+
+-- Create performance_metrics table
+CREATE TABLE IF NOT EXISTS public.performance_metrics (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    agent_id UUID REFERENCES public.agents(id) ON DELETE CASCADE,
+    date DATE NOT NULL,
+    total_return DECIMAL NOT NULL,
+    sharpe_ratio DECIMAL,
+    max_drawdown DECIMAL,
+    win_rate DECIMAL,
+    trades_count INTEGER DEFAULT 0,
+    UNIQUE(agent_id, date)
+);
+
+-- Create audit_logs table
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id TEXT REFERENCES public.users(id),
+    action TEXT NOT NULL,
+    details JSONB,
+    ip_address TEXT,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW())
+);
+
+-- Create subscription_tiers table
+CREATE TABLE IF NOT EXISTS public.subscription_tiers (
+    tier TEXT PRIMARY KEY,
+    agent_limit INTEGER NOT NULL,
+    paper_trading BOOLEAN NOT NULL,
+    live_trading BOOLEAN NOT NULL,
+    api_calls_per_month INTEGER NOT NULL,
+    advanced_strategies BOOLEAN NOT NULL,
+    custom_strategies BOOLEAN NOT NULL,
+    price_monthly DECIMAL NOT NULL
+);
+
+-- Insert default subscription tiers
+INSERT INTO public.subscription_tiers (tier, agent_limit, paper_trading, live_trading, api_calls_per_month, advanced_strategies, custom_strategies, price_monthly) VALUES
+('free', 5, true, false, 10000, false, false, 0),
+('pro', 25, true, true, 100000, true, true, 49),
+('enterprise', 999, true, true, 9999999, true, true, 299)
+ON CONFLICT (tier) DO NOTHING;
+
+-- Row Level Security (RLS)
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.strategies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.agents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.trades ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.performance_metrics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+
+-- Users can only see their own data
+CREATE POLICY "Users can view own data" ON public.users
+    FOR SELECT USING (auth.uid()::text = id);
+
+CREATE POLICY "Users can update own data" ON public.users
+    FOR UPDATE USING (auth.uid()::text = id);
+
+-- Strategies policies
+CREATE POLICY "Users can view own strategies" ON public.strategies
+    FOR SELECT USING (auth.uid()::text = user_id OR visibility IN ('public', 'marketplace'));
+
+CREATE POLICY "Users can create strategies" ON public.strategies
+    FOR INSERT WITH CHECK (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can update own strategies" ON public.strategies
+    FOR UPDATE USING (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can delete own strategies" ON public.strategies
+    FOR DELETE USING (auth.uid()::text = user_id);
+
+-- Agents policies
+CREATE POLICY "Users can view own agents" ON public.agents
+    FOR SELECT USING (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can create agents" ON public.agents
+    FOR INSERT WITH CHECK (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can update own agents" ON public.agents
+    FOR UPDATE USING (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can delete own agents" ON public.agents
+    FOR DELETE USING (auth.uid()::text = user_id);
+
+-- Trades policies
+CREATE POLICY "Users can view own trades" ON public.trades
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM agents 
+            WHERE agents.id = trades.agent_id 
+            AND agents.user_id = auth.uid()::text
+        )
+    );
+
+-- Performance metrics policies
+CREATE POLICY "Users can view own metrics" ON public.performance_metrics
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM agents 
+            WHERE agents.id = performance_metrics.agent_id 
+            AND agents.user_id = auth.uid()::text
+        )
+    );
+
+-- Audit logs policies (users can only see their own logs)
+CREATE POLICY "Users can view own audit logs" ON public.audit_logs
+    FOR SELECT USING (auth.uid()::text = user_id);
+
+-- Create indexes for better performance
+CREATE INDEX idx_strategies_user_id ON public.strategies(user_id);
+CREATE INDEX idx_agents_user_id ON public.agents(user_id);
+CREATE INDEX idx_agents_strategy_id ON public.agents(strategy_id);
+CREATE INDEX idx_trades_agent_id ON public.trades(agent_id);
+CREATE INDEX idx_performance_metrics_agent_id ON public.performance_metrics(agent_id);
+CREATE INDEX idx_performance_metrics_date ON public.performance_metrics(date);
+CREATE INDEX idx_audit_logs_user_id ON public.audit_logs(user_id);
+CREATE INDEX idx_trades_timestamp ON public.trades(timestamp);
+
+-- Function to validate live trading permissions
+CREATE OR REPLACE FUNCTION validate_live_trading()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- If mode is 'live', check if user has live trading permissions
+    IF NEW.mode = 'live' THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM users 
+            WHERE id = NEW.user_id 
+            AND (permissions->>'live_trading')::boolean = true
+        ) THEN
+            RAISE EXCEPTION 'User does not have live trading permissions';
+        END IF;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger to enforce live trading validation
+CREATE TRIGGER trigger_validate_live_trading
+    BEFORE INSERT OR UPDATE ON public.agents
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_live_trading();
+
+-- Function to enforce agent limits
+CREATE OR REPLACE FUNCTION enforce_agent_limit()
+RETURNS TRIGGER AS $$
+DECLARE
+    user_agent_count INTEGER;
+    user_agent_limit INTEGER;
+BEGIN
+    -- Get current agent count and limit for the user
+    SELECT COUNT(*), u.agent_limit 
+    INTO user_agent_count, user_agent_limit
+    FROM agents a
+    JOIN users u ON u.id = NEW.user_id
+    WHERE a.user_id = NEW.user_id
+    GROUP BY u.agent_limit;
+    
+    -- If this is an INSERT and would exceed the limit
+    IF TG_OP = 'INSERT' AND user_agent_count >= user_agent_limit THEN
+        RAISE EXCEPTION 'Agent limit exceeded. Current limit: %', user_agent_limit;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger to enforce agent limits
+CREATE TRIGGER trigger_enforce_agent_limit
+    BEFORE INSERT ON public.agents
+    FOR EACH ROW
+    EXECUTE FUNCTION enforce_agent_limit();
