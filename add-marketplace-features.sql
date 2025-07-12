@@ -49,16 +49,10 @@ CREATE INDEX IF NOT EXISTS idx_agent_followers_user ON agent_followers(follower_
 CREATE OR REPLACE VIEW public_agents AS
 SELECT 
     a.*,
-    pm.total_trades,
-    pm.winning_trades,
-    pm.total_pnl,
-    pm.win_rate,
-    pm.total_volume,
     COALESCE(ar.avg_rating, 0) as avg_rating,
     COALESCE(ar.review_count, 0) as review_count,
     COALESCE(af.follower_count, 0) as follower_count
 FROM agents a
-LEFT JOIN performance_metrics pm ON a.id = pm.agent_id
 LEFT JOIN (
     SELECT 
         agent_id,
@@ -75,7 +69,7 @@ LEFT JOIN (
     GROUP BY agent_id
 ) af ON a.id = af.agent_id
 WHERE a.is_public = TRUE
-ORDER BY a.total_return_pct DESC, pm.total_pnl DESC;
+ORDER BY a.total_return_pct DESC, a.total_return DESC;
 
 -- Function to clone an agent
 CREATE OR REPLACE FUNCTION clone_agent(
@@ -99,23 +93,21 @@ BEGIN
         user_id,
         name,
         description,
-        strategy_type,
+        strategy_id,
         risk_tolerance,
         trading_frequency,
         initial_capital,
         current_capital,
-        parameters,
         is_public
     ) VALUES (
         new_user_id_param,
         COALESCE(new_name_param, 'Copy of ' || original_agent.name),
-        'Cloned from: ' || original_agent.description,
-        original_agent.strategy_type,
+        COALESCE('Cloned from: ' || original_agent.description, 'Cloned agent'),
+        original_agent.strategy_id,
         original_agent.risk_tolerance,
         original_agent.trading_frequency,
         original_agent.initial_capital,
         original_agent.initial_capital, -- Reset capital
-        original_agent.parameters,
         FALSE -- Clones start as private
     ) RETURNING id INTO new_agent_id;
     
@@ -152,24 +144,23 @@ CREATE TRIGGER trigger_update_agent_performance
     FOR EACH ROW EXECUTE FUNCTION update_agent_performance_summary();
 
 -- Sample data for testing marketplace
-INSERT INTO agents (user_id, name, description, strategy_type, risk_tolerance, trading_frequency, initial_capital, current_capital, is_public, total_return_pct) VALUES
-('demo-user-1', 'Momentum Master', 'High-performance momentum trading agent with 87% win rate', 'momentum', 'high', 'hourly', 10000, 12450, TRUE, 24.5),
-('demo-user-2', 'Value Hunter', 'Conservative value investing strategy focusing on undervalued stocks', 'value_investing', 'low', 'weekly', 25000, 28750, TRUE, 15.0),
-('demo-user-3', 'Growth Rocket', 'Aggressive growth strategy targeting high-growth tech stocks', 'growth_investing', 'high', 'daily', 15000, 19200, TRUE, 28.0)
+INSERT INTO agents (user_id, name, description, strategy_id, risk_tolerance, trading_frequency, initial_capital, current_capital, is_public, total_return_pct) VALUES
+('demo-user-1', 'Momentum Master', 'High-performance momentum trading agent with 87% win rate', 'momentum-trading', 'high', 'hourly', 10000, 12450, TRUE, 24.5),
+('demo-user-2', 'Value Hunter', 'Conservative value investing strategy focusing on undervalued stocks', 'value-investing', 'low', 'weekly', 25000, 28750, TRUE, 15.0),
+('demo-user-3', 'Growth Rocket', 'Aggressive growth strategy targeting high-growth tech stocks', 'crypto-trading', 'high', 'daily', 15000, 19200, TRUE, 28.0)
 ON CONFLICT (user_id, name) DO NOTHING;
 
--- Add sample performance metrics
-INSERT INTO performance_metrics (agent_id, total_trades, winning_trades, total_pnl, win_rate, total_volume) 
+-- Add sample performance metrics (using the correct schema)
+INSERT INTO performance_metrics (agent_id, date, portfolio_value, total_return, trades_count) 
 SELECT 
     a.id,
-    FLOOR(RANDOM() * 100 + 50)::INTEGER,
-    FLOOR(RANDOM() * 70 + 30)::INTEGER,
-    (a.current_capital - a.initial_capital),
-    FLOOR(RANDOM() * 40 + 60),
-    FLOOR(RANDOM() * 500000 + 100000)
+    CURRENT_DATE,
+    a.current_capital,
+    a.total_return,
+    FLOOR(RANDOM() * 100 + 50)::INTEGER
 FROM agents a 
 WHERE a.is_public = TRUE
-ON CONFLICT (agent_id) DO NOTHING;
+ON CONFLICT (agent_id, date) DO NOTHING;
 
 -- Add sample reviews (simplified approach)
 INSERT INTO agent_reviews (agent_id, user_id, rating, review_text)
