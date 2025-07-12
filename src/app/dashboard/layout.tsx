@@ -1,5 +1,9 @@
-import { UserButton } from '@clerk/nextjs'
+'use client'
+
+import { UserButton, useAuth } from '@clerk/nextjs'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { 
   LayoutDashboard, 
   Bot, 
@@ -8,7 +12,8 @@ import {
   DollarSign,
   BarChart3,
   FileText,
-  Menu
+  Menu,
+  Loader2
 } from 'lucide-react'
 
 export default function DashboardLayout({
@@ -16,6 +21,34 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
+  const { isLoaded, userId } = useAuth()
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+
+  // Protect this layout with client-side auth check
+  useEffect(() => {
+    if (isLoaded) {
+      setLoading(false)
+      if (!userId) {
+        router.push('/sign-in')
+      }
+    }
+  }, [isLoaded, userId, router])
+
+  // Show loading state while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+        <span className="ml-2 text-gray-700">Loading...</span>
+      </div>
+    )
+  }
+
+  // Don't render anything if not authenticated
+  if (!userId) {
+    return null
+  }
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Top Navigation */}
