@@ -147,8 +147,7 @@ CREATE TRIGGER trigger_update_agent_performance
 INSERT INTO agents (user_id, name, description, strategy_id, risk_tolerance, trading_frequency, initial_capital, current_capital, is_public, total_return_pct) VALUES
 ('demo-user-1', 'Momentum Master', 'High-performance momentum trading agent with 87% win rate', 'momentum-trading', 'high', 'hourly', 10000, 12450, TRUE, 24.5),
 ('demo-user-2', 'Value Hunter', 'Conservative value investing strategy focusing on undervalued stocks', 'value-investing', 'low', 'weekly', 25000, 28750, TRUE, 15.0),
-('demo-user-3', 'Growth Rocket', 'Aggressive growth strategy targeting high-growth tech stocks', 'crypto-trading', 'high', 'daily', 15000, 19200, TRUE, 28.0)
-ON CONFLICT (user_id, name) DO NOTHING;
+('demo-user-3', 'Growth Rocket', 'Aggressive growth strategy targeting high-growth tech stocks', 'crypto-trading', 'high', 'daily', 15000, 19200, TRUE, 28.0);
 
 -- Add sample performance metrics (using the correct schema)
 INSERT INTO performance_metrics (agent_id, date, portfolio_value, total_return, trades_count) 
@@ -159,8 +158,7 @@ SELECT
     a.total_return,
     FLOOR(RANDOM() * 100 + 50)::INTEGER
 FROM agents a 
-WHERE a.is_public = TRUE
-ON CONFLICT (agent_id, date) DO NOTHING;
+WHERE a.is_public = TRUE;
 
 -- Add sample reviews (simplified approach)
 INSERT INTO agent_reviews (agent_id, user_id, rating, review_text)
@@ -170,8 +168,7 @@ SELECT
     FLOOR(RANDOM() * 2 + 4)::INTEGER, -- 4-5 star ratings
     'Great performance and consistent returns!'
 FROM agents a 
-WHERE a.is_public = TRUE
-ON CONFLICT (agent_id, user_id) DO NOTHING;
+WHERE a.is_public = TRUE;
 
 INSERT INTO agent_reviews (agent_id, user_id, rating, review_text)
 SELECT 
@@ -180,8 +177,7 @@ SELECT
     FLOOR(RANDOM() * 2 + 4)::INTEGER, -- 4-5 star ratings
     'Solid strategy, would recommend to others.'
 FROM agents a 
-WHERE a.is_public = TRUE
-ON CONFLICT (agent_id, user_id) DO NOTHING;
+WHERE a.is_public = TRUE;
 
 INSERT INTO agent_reviews (agent_id, user_id, rating, review_text)
 SELECT 
@@ -190,5 +186,4 @@ SELECT
     FLOOR(RANDOM() * 2 + 4)::INTEGER, -- 4-5 star ratings
     'Impressive results, following this agent closely.'
 FROM agents a 
-WHERE a.is_public = TRUE
-ON CONFLICT (agent_id, user_id) DO NOTHING;
+WHERE a.is_public = TRUE;
