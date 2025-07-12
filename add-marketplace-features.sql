@@ -171,18 +171,33 @@ FROM agents a
 WHERE a.is_public = TRUE
 ON CONFLICT (agent_id) DO NOTHING;
 
--- Add sample reviews
+-- Add sample reviews (simplified approach)
 INSERT INTO agent_reviews (agent_id, user_id, rating, review_text)
 SELECT 
     a.id,
-    'reviewer-' || generate_random_uuid()::TEXT,
+    'reviewer-1-' || a.id::TEXT,
     FLOOR(RANDOM() * 2 + 4)::INTEGER, -- 4-5 star ratings
-    CASE FLOOR(RANDOM() * 3)
-        WHEN 0 THEN 'Great performance and consistent returns!'
-        WHEN 1 THEN 'Solid strategy, would recommend to others.'
-        ELSE 'Impressive results, following this agent closely.'
-    END
+    'Great performance and consistent returns!'
 FROM agents a 
 WHERE a.is_public = TRUE
-CROSS JOIN generate_series(1, 3) -- 3 reviews per public agent
+ON CONFLICT (agent_id, user_id) DO NOTHING;
+
+INSERT INTO agent_reviews (agent_id, user_id, rating, review_text)
+SELECT 
+    a.id,
+    'reviewer-2-' || a.id::TEXT,
+    FLOOR(RANDOM() * 2 + 4)::INTEGER, -- 4-5 star ratings
+    'Solid strategy, would recommend to others.'
+FROM agents a 
+WHERE a.is_public = TRUE
+ON CONFLICT (agent_id, user_id) DO NOTHING;
+
+INSERT INTO agent_reviews (agent_id, user_id, rating, review_text)
+SELECT 
+    a.id,
+    'reviewer-3-' || a.id::TEXT,
+    FLOOR(RANDOM() * 2 + 4)::INTEGER, -- 4-5 star ratings
+    'Impressive results, following this agent closely.'
+FROM agents a 
+WHERE a.is_public = TRUE
 ON CONFLICT (agent_id, user_id) DO NOTHING;
