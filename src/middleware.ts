@@ -1,29 +1,17 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { getAuth } from "@clerk/nextjs/server";
+// Simplest Clerk middleware configuration to avoid production errors
+export { default } from "@clerk/nextjs";
 
-// Simple middleware that protects routes
-export function middleware(request: NextRequest) {
-  const { userId } = getAuth(request);
-  const path = request.nextUrl.pathname;
-  
-  // Define public routes that don't require authentication
-  const isPublicRoute = 
-    path === '/' || 
-    path.startsWith('/sign-in') || 
-    path.startsWith('/sign-up') ||
-    path.includes('_next') ||
-    path.includes('favicon.ico');
-  
-  // If trying to access protected route without auth, redirect to sign-in
-  if (!isPublicRoute && !userId) {
-    return NextResponse.redirect(new URL('/sign-in', request.url));
-  }
-  
-  // Continue with the request
-  return NextResponse.next();
-}
-
+// Configure protected and public routes via matcher patterns
 export const config = {
-  matcher: ["/((?!.+\\.[\\w]+$|_next).*)", "/", "/(api|trpc)(.*)"],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     * - public routes (sign-in, sign-up)
+     */
+    "/((?!_next/static|_next/image|favicon.ico|sign-in|sign-up).*)",
+  ],
 };

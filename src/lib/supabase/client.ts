@@ -1,6 +1,8 @@
 import { createBrowserClient } from '@supabase/ssr'
 import { useAuth } from '@clerk/nextjs'
+import { useState, useEffect } from 'react'
 
+// Simple non-authenticated client (for public routes)
 export function createClient() {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,24 +10,36 @@ export function createClient() {
   )
 }
 
-// Use this function in components to get an authenticated client
+// Enhanced hook that properly handles async token fetching
 export function useSupabaseClient() {
-  const { getToken } = useAuth()
-  
-  const client = createBrowserClient(
+  const { getToken, userId } = useAuth()
+  const [client] = useState(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-
-  // Set Supabase JWT if available from Clerk
-  getToken({ template: "supabase" }).then(token => {
-    if (token) {
-      client.auth.setSession({
-        access_token: token,
-        refresh_token: '',
-      })
+  ))
+  
+  // Set JWT token whenever auth state changes
+  useEffect(() => {
+    // Only attempt to get token if user is signed in
+    if (!userId) return
+    
+    // Async function to get and set the token
+    const setSupabaseToken = async () => {
+      try {
+        const token = await getToken({ template: "supabase" })
+        if (token) {
+          await client.auth.setSession({
+            access_token: token,
+            refresh_token: '',
+          })
+        }
+      } catch (error) {
+        console.error('Error setting Supabase token:', error)
+      }
     }
-  })
-
+    
+    setSupabaseToken()
+  }, [userId, getToken, client])
+  
   return client
 }
