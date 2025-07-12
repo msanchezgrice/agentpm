@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@clerk/nextjs'
+import { createClient } from '@/lib/supabase/client'
 import { Bot, ArrowLeft, Zap, TrendingUp, Shield, BarChart3, Brain, Target } from 'lucide-react'
 
 const strategies = [
@@ -69,24 +71,68 @@ const strategies = [
 
 export default function NewAgentPage() {
   const router = useRouter()
+  const { userId } = useAuth()
   const [step, setStep] = useState(1)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
   const [agentData, setAgentData] = useState({
     name: '',
     strategy: '',
     initialCapital: 1000,
-    riskTolerance: 'medium',
+    riskTolerance: 'moderate',
     tradingFrequency: 'daily',
     description: ''
   })
 
-  const handleCreateAgent = () => {
-    // Here you would normally save to database
-    console.log('Creating agent with data:', agentData)
+  // Save agent to Supabase
+  const handleCreateAgent = async () => {
+    if (!userId) {
+      setError('You must be logged in to create an agent')
+      return
+    }
+
+    setIsSubmitting(true)
+    setError('')
     
-    // Simulate success and redirect
-    setTimeout(() => {
+    try {
+      // First, ensure the user exists in our investment_users table
+      const supabase = createClient()
+      
+      // Insert user if not exists
+      await supabase.from('investment_users').upsert({
+        id: userId,
+        email: '', // We'll get this from Clerk in a production app
+        name: '' // We'll get this from Clerk in a production app
+      }).select()
+      
+      // Insert agent
+      const { data, error } = await supabase.from('agents').insert({
+        user_id: userId,
+        name: agentData.name,
+        strategy_id: agentData.strategy,
+        initial_capital: agentData.initialCapital,
+        current_capital: agentData.initialCapital, // Start with same as initial
+        risk_tolerance: agentData.riskTolerance,
+        trading_frequency: agentData.tradingFrequency,
+        description: agentData.description,
+        status: 'active',
+        total_trades: 0,
+        win_rate: 0,
+        total_return: 0
+      }).select()
+      
+      if (error) throw error
+      
+      console.log('Agent created successfully:', data)
+      
+      // Redirect to agents list
       router.push('/dashboard/agents')
-    }, 1000)
+    } catch (err) {
+      console.error('Error creating agent:', err)
+      setError('Failed to create agent. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const getRiskColor = (risk: string) => {
