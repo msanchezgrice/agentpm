@@ -3,8 +3,9 @@ import { getPolygonClient } from '@/lib/polygon/client'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { ticker: string } }
+  context: { params: Promise<{ ticker: string }> }
 ) {
+  const params = await context.params
   try {
     const ticker = params.ticker.toUpperCase()
     const polygon = getPolygonClient()
