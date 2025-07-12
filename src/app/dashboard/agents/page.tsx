@@ -361,7 +361,8 @@ export default function AgentsPage() {
           {/* Agents Grid */}
           <div className="grid gap-6">
             {filteredAgents.map((agent) => (
-              <div key={agent.id} className="card p-6 hover:shadow-lg transition-shadow">
+              <Link key={agent.id} href={`/dashboard/agents/${agent.id}`} className="block">
+                <div className="card p-6 hover:shadow-lg transition-shadow cursor-pointer">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
@@ -490,7 +491,8 @@ export default function AgentsPage() {
                     </button>
                   </div>
                 )}
-              </div>
+                </div>
+              </Link>
             ))}
           </div>
 
