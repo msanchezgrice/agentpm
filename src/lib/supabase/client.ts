@@ -26,12 +26,14 @@ export function useSupabaseClient() {
     // Async function to get and set the token
     const setSupabaseToken = async () => {
       try {
-        const token = await getToken({ template: "supabase" })
+        // Get the session token directly (no template needed in newer Clerk versions)
+        const token = await getToken()
         if (token) {
           await client.auth.setSession({
             access_token: token,
             refresh_token: '',
           })
+          console.log('Successfully set Supabase auth token')
         }
       } catch (error) {
         console.error('Error setting Supabase token:', error)
