@@ -143,6 +143,12 @@ CREATE TRIGGER trigger_update_agent_performance
     AFTER INSERT OR UPDATE OR DELETE ON performance_metrics
     FOR EACH ROW EXECUTE FUNCTION update_agent_performance_summary();
 
+-- Create demo users first
+INSERT INTO investment_users (id, email, name) VALUES
+('demo-user-1', 'demo1@example.com', 'Demo User 1'),
+('demo-user-2', 'demo2@example.com', 'Demo User 2'),
+('demo-user-3', 'demo3@example.com', 'Demo User 3');
+
 -- Sample data for testing marketplace
 INSERT INTO agents (user_id, name, description, strategy_id, risk_tolerance, trading_frequency, initial_capital, current_capital, is_public, total_return_pct) VALUES
 ('demo-user-1', 'Momentum Master', 'High-performance momentum trading agent with 87% win rate', 'momentum-trading', 'high', 'hourly', 10000, 12450, TRUE, 24.5),
