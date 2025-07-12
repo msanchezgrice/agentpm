@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@clerk/nextjs'
-import { createClient } from '@/lib/supabase/client'
+import { useSupabaseClient } from '@/lib/supabase/client'
 import { Bot, ArrowLeft, Zap, TrendingUp, Shield, BarChart3, Brain, Target } from 'lucide-react'
 
 const strategies = [
@@ -96,7 +96,7 @@ export default function NewAgentPage() {
     
     try {
       // First, ensure the user exists in our investment_users table
-      const supabase = createClient()
+      const supabase = useSupabaseClient()
       
       // Insert user if not exists
       await supabase.from('investment_users').upsert({

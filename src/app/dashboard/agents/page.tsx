@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@clerk/nextjs'
-import { createClient } from '@/lib/supabase/client'
+import { useSupabaseClient } from '@/lib/supabase/client'
 import { Bot, Plus, Play, Pause, Settings, TrendingUp, TrendingDown, Activity, AlertCircle, Loader2 } from 'lucide-react'
 
 // Mock data for agents
@@ -83,7 +83,7 @@ export default function AgentsPage() {
 
       try {
         setLoading(true)
-        const supabase = createClient()
+        const supabase = useSupabaseClient()
         
         // First, fetch strategies
         const { data: strategyData, error: strategyError } = await supabase
@@ -93,7 +93,7 @@ export default function AgentsPage() {
         if (strategyError) throw strategyError
         
         // Convert to object map for easy lookup
-        const strategyMap = strategyData.reduce((acc, strategy) => {
+        const strategyMap = strategyData.reduce((acc: {[key: string]: any}, strategy: any) => {
           acc[strategy.id] = strategy
           return acc
         }, {})
