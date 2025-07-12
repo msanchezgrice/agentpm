@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Bot, Plus, Play, Pause, Settings, TrendingUp, TrendingDown, Activity, AlertCircle } from 'lucide-react'
 
 // Mock data for agents
@@ -97,10 +98,10 @@ export default function AgentsPage() {
           <h1 className="text-3xl font-bold text-gray-900">AI Agents</h1>
           <p className="text-gray-600 mt-1">Manage your AI trading agents</p>
         </div>
-        <button className="btn-primary flex items-center gap-2">
+        <Link href="/dashboard/agents/new" className="btn-primary flex items-center gap-2">
           <Plus className="h-4 w-4" />
           Create New Agent
-        </button>
+        </Link>
       </div>
 
       {/* Stats Overview */}
