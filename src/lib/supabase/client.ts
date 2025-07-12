@@ -1,6 +1,6 @@
 import { createBrowserClient } from '@supabase/ssr'
 import { useAuth } from '@clerk/nextjs'
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 
 // Simple non-authenticated client (for public routes)
 export function createClient() {
@@ -13,10 +13,12 @@ export function createClient() {
 // Enhanced hook that properly handles async token fetching
 export function useSupabaseClient() {
   const { getToken, userId } = useAuth()
-  const [client] = useState(() => createBrowserClient(
+
+  // Create client only once using useMemo
+  const client = useMemo(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  ))
+  ), [])
   
   // Set JWT token whenever auth state changes
   useEffect(() => {
