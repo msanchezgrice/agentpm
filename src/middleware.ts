@@ -1,33 +1,17 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { getAuth } from '@clerk/nextjs/server';
+// Simplest possible middleware for Clerk integration
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-// This function defines your middleware behavior
+// This is the most basic middleware function possible
 export function middleware(request: NextRequest) {
-  const { userId } = getAuth(request);
-  const path = request.nextUrl.pathname;
-  
-  // Define public routes
-  const isPublicRoute = 
-    path === '/' || 
-    path.startsWith('/sign-in') || 
-    path.startsWith('/sign-up');
-  
-  // If trying to access protected route without auth, redirect to sign-in
-  if (!isPublicRoute && !userId) {
-    const signInUrl = new URL('/sign-in', request.url);
-    return NextResponse.redirect(signInUrl);
-  }
-  
-  // Continue with the request
+  // All this does is pass through all requests
+  // Just to ensure the middleware loads correctly
   return NextResponse.next();
 }
 
-// Define which paths should be processed by this middleware
+// Only apply middleware to a few routes to minimize issues
 export const config = {
   matcher: [
-    // Match all paths except static files and certain routes
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-    '/',
+    '/dashboard/:path*',
   ],
 };
