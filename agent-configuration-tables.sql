@@ -58,14 +58,13 @@ CREATE TABLE IF NOT EXISTS backtest_jobs (
   started_at timestamp with time zone,
   completed_at timestamp with time zone,
   error_message text,
-  created_at timestamp with time zone DEFAULT now(),
-  
-  INDEX idx_backtest_jobs_agent_id (agent_id),
-  INDEX idx_backtest_jobs_status (status)
+  created_at timestamp with time zone DEFAULT now()
 );
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_agent_configurations_agent_id ON agent_configurations(agent_id);
+CREATE INDEX IF NOT EXISTS idx_backtest_jobs_agent_id ON backtest_jobs(agent_id);
+CREATE INDEX IF NOT EXISTS idx_backtest_jobs_status ON backtest_jobs(status);
 
 -- Grant permissions (adjust based on your RLS policies)
 GRANT ALL ON agent_configurations TO authenticated;
