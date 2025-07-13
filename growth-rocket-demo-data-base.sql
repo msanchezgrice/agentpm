@@ -1,6 +1,11 @@
 -- Comprehensive Demo Data for Growth Rocket Agent
 -- This version works with the base agents table (without marketplace columns)
 
+-- First create a demo user in investment_users table
+INSERT INTO investment_users (id, email, created_at) 
+VALUES ('demo-user-001', 'demo@agentpm.ai', NOW())
+ON CONFLICT (id) DO NOTHING;
+
 -- Create the Growth Rocket demo agent
 INSERT INTO agents (
     id,
