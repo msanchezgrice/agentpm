@@ -230,7 +230,7 @@ export default function AgentsPage() {
           </p>
         </div>
         {activeTab === 'my-agents' && (
-          <Link href="/dashboard/agents/new" className="btn-primary flex items-center gap-2">
+          <Link href="/dashboard/agents/create" className="btn-primary flex items-center gap-2">
             <Plus className="h-4 w-4" />
             Create New Agent
           </Link>
@@ -509,7 +509,7 @@ export default function AgentsPage() {
                 }
               </p>
               {activeTab === 'my-agents' && (
-                <Link href="/dashboard/agents/new" className="inline-block mt-4 btn-primary">
+                <Link href="/dashboard/agents/create" className="inline-block mt-4 btn-primary">
                   <Plus className="h-4 w-4 mr-2" />
                   Create Your First Agent
                 </Link>
