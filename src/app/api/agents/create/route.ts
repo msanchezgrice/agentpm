@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
         risk_tolerance: agentConfig.risk_tolerance,
         trading_frequency: agentConfig.timeframe === '1day' ? 'daily' : 
                           agentConfig.timeframe === '1hour' ? 'hourly' : 'high_frequency',
-        status: 'pending', // Will be activated after backtesting
+        status: 'active', // Set to active immediately
         initial_capital: agentConfig.initial_capital,
         current_capital: agentConfig.initial_capital,
         total_return: 0,
