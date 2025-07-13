@@ -78,8 +78,12 @@ export default function DashboardLayout({
               <Bot className="h-5 w-5" />
               <span>AI Agents</span>
             </Link>
-            <Link href="/dashboard/strategies" className="flex items-center gap-3 px-3 py-2 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+            <Link href="/dashboard/markets" className="flex items-center gap-3 px-3 py-2 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
               <TrendingUp className="h-5 w-5" />
+              <span>Markets</span>
+            </Link>
+            <Link href="/dashboard/strategies" className="flex items-center gap-3 px-3 py-2 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+              <FileText className="h-5 w-5" />
               <span>Strategies</span>
             </Link>
             <Link href="/dashboard/portfolio" className="flex items-center gap-3 px-3 py-2 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
