@@ -58,9 +58,9 @@ WITH RECURSIVE daily_performance AS (
     SELECT 
         '00000000-0000-0000-0000-000000000001'::uuid as agent_id,
         (NOW() - INTERVAL '6 months')::date as date,
-        100000.00 as portfolio_value,
-        0.00 as daily_return,
-        0.00 as total_return_pct,
+        100000.00::decimal as portfolio_value,
+        0.00::decimal as daily_return,
+        0.00::decimal as total_return_pct,
         0 as day_number
     
     UNION ALL
