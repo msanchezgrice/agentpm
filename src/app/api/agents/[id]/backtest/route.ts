@@ -41,31 +41,41 @@ export async function GET(
     }
 
     if (!backtestJob) {
-      // Create mock backtest results for demo
+      // Fetch the agent data to generate consistent mock results
+      const { data: agent } = await supabase
+        .from('agents')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (!agent) {
+        return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
+      }
+
+      // Generate agent-specific mock backtest results based on actual agent data
+      const initialCapital = agent.initial_capital || 100000
+      const totalReturn = agent.total_return_pct || 15.5
+      const finalCapital = initialCapital * (1 + totalReturn / 100)
+      
       const mockResults = {
         agent_id: id,
         status: 'completed',
         period: '6months',
-        initial_capital: 100000,
-        final_capital: 128453.67,
-        total_return_pct: 28.45,
-        sharpe_ratio: 1.82,
-        max_drawdown: -8.34,
-        win_rate: 62.68,
-        total_trades: 142,
-        winning_trades: 89,
-        losing_trades: 53,
-        avg_win: 1250.45,
-        avg_loss: -680.30,
-        profit_factor: 2.18,
-        performance_data: generateMockPerformanceData(),
-        trade_history: generateMockTradeHistory(),
-        metrics_by_symbol: {
-          'NVDA': { trades: 15, win_rate: 73.3, total_return: 9330 },
-          'TSLA': { trades: 18, win_rate: 61.1, total_return: 3430 },
-          'META': { trades: 12, win_rate: 66.7, total_return: 2760 },
-          'GOOGL': { trades: 10, win_rate: 70.0, total_return: 1512 }
-        },
+        initial_capital: initialCapital,
+        final_capital: finalCapital,
+        total_return_pct: totalReturn,
+        sharpe_ratio: agent.sharpe_ratio || 1.45,
+        max_drawdown: agent.max_drawdown || -7.5,
+        win_rate: agent.win_rate || 58.5,
+        total_trades: agent.total_trades || 120,
+        winning_trades: Math.floor((agent.total_trades || 120) * (agent.win_rate || 58.5) / 100),
+        losing_trades: Math.floor((agent.total_trades || 120) * (1 - (agent.win_rate || 58.5) / 100)),
+        avg_win: 850.25,
+        avg_loss: -450.15,
+        profit_factor: 1.89,
+        performance_data: generateMockPerformanceData(initialCapital, totalReturn),
+        trade_history: generateMockTradeHistory(agent.strategy_type),
+        metrics_by_symbol: generateSymbolMetrics(agent.strategy_type),
         completed_at: new Date().toISOString()
       }
       
@@ -75,8 +85,8 @@ export async function GET(
     // In a real system, fetch actual backtest results
     const backtestResults = {
       ...backtestJob,
-      performance_data: backtestJob.results?.performance_data || generateMockPerformanceData(),
-      trade_history: backtestJob.results?.trade_history || generateMockTradeHistory()
+      performance_data: backtestJob.results?.performance_data || generateMockPerformanceData(100000, 15),
+      trade_history: backtestJob.results?.trade_history || generateMockTradeHistory('momentum')
     }
 
     return NextResponse.json({ backtest: backtestResults })
@@ -90,32 +100,43 @@ export async function GET(
   }
 }
 
-function generateMockPerformanceData() {
+function generateMockPerformanceData(initialCapital: number, totalReturnPct: number) {
   const data = []
   const startDate = new Date()
   startDate.setMonth(startDate.getMonth() - 6)
   
-  let value = 100000
+  let value = initialCapital
+  const dailyReturn = totalReturnPct / 100 / 180 // Spread return over 180 days
+  
   for (let i = 0; i < 180; i++) {
     const date = new Date(startDate)
     date.setDate(date.getDate() + i)
     
-    // Add some volatility
-    const change = (Math.random() - 0.45) * 0.02 // Slight positive bias
-    value = value * (1 + change)
+    // Add some volatility but trend towards the final return
+    const volatility = (Math.random() - 0.5) * 0.02
+    const trend = dailyReturn + volatility
+    value = value * (1 + trend)
     
     data.push({
       date: date.toISOString().split('T')[0],
       value: Math.round(value * 100) / 100,
-      benchmark: 100000 * (1 + (i * 0.0006)) // ~11% over 6 months
+      benchmark: initialCapital * (1 + (i * 0.0006)) // ~11% over 6 months
     })
   }
   
   return data
 }
 
-function generateMockTradeHistory() {
-  const symbols = ['NVDA', 'TSLA', 'META', 'GOOGL', 'MSFT', 'AMZN', 'AMD', 'CRM']
+function generateMockTradeHistory(strategyType: string) {
+  // Different symbols based on strategy type
+  const symbolsByStrategy: Record<string, string[]> = {
+    momentum: ['NVDA', 'TSLA', 'META', 'AMD', 'NFLX'],
+    value: ['BRK.B', 'JPM', 'WMT', 'JNJ', 'PG'],
+    mean_reversion: ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'FB'],
+    arbitrage: ['SPY', 'QQQ', 'IWM', 'DIA', 'VTI']
+  }
+  
+  const symbols = symbolsByStrategy[strategyType] || ['AAPL', 'GOOGL', 'MSFT', 'AMZN']
   const trades = []
   
   for (let i = 0; i < 20; i++) {
@@ -123,7 +144,7 @@ function generateMockTradeHistory() {
     const side = Math.random() > 0.5 ? 'buy' : 'sell'
     const quantity = Math.floor(Math.random() * 200) + 50
     const price = Math.random() * 300 + 100
-    const outcome = Math.random() > 0.38 ? Math.random() * 2000 : -Math.random() * 1000
+    const outcome = Math.random() > 0.42 ? Math.random() * 1500 : -Math.random() * 800
     
     trades.push({
       symbol,
@@ -136,4 +157,26 @@ function generateMockTradeHistory() {
   }
   
   return trades.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+}
+
+function generateSymbolMetrics(strategyType: string) {
+  const symbolsByStrategy: Record<string, string[]> = {
+    momentum: ['NVDA', 'TSLA', 'META', 'AMD'],
+    value: ['BRK.B', 'JPM', 'WMT', 'JNJ'],
+    mean_reversion: ['AAPL', 'MSFT', 'GOOGL', 'AMZN'],
+    arbitrage: ['SPY', 'QQQ', 'IWM', 'DIA']
+  }
+  
+  const symbols = symbolsByStrategy[strategyType] || ['AAPL', 'GOOGL', 'MSFT', 'AMZN']
+  const metrics: Record<string, any> = {}
+  
+  symbols.forEach(symbol => {
+    metrics[symbol] = {
+      trades: Math.floor(Math.random() * 20) + 10,
+      win_rate: 50 + Math.random() * 30,
+      total_return: Math.floor(Math.random() * 5000) + 1000
+    }
+  })
+  
+  return metrics
 }

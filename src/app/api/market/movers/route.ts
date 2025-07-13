@@ -99,13 +99,17 @@ export async function GET(request: NextRequest) {
           `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/gainers?apiKey=${POLYGON_API_KEY}`
         )
         
+        console.log('Gainers API response status:', response.status)
+        
         if (response.ok) {
           const data = await response.json()
+          console.log('Gainers data:', data?.tickers?.length, 'tickers found')
+          
           if (data.tickers?.length > 0) {
             // Map the first 5 gainers
             const realGainers = data.tickers.slice(0, 5).map((ticker: any) => ({
               symbol: ticker.ticker,
-              name: ticker.name || ticker.ticker,
+              name: ticker.ticker, // Polygon doesn't always provide names
               price: ticker.day.c,
               change: ticker.day.c - ticker.day.o,
               changePercent: ((ticker.day.c - ticker.day.o) / ticker.day.o) * 100,
@@ -113,12 +117,16 @@ export async function GET(request: NextRequest) {
             }))
             
             if (realGainers.length > 0) {
+              console.log('Returning real gainers data')
               return NextResponse.json({ 
                 gainers: realGainers,
-                losers: mockLosers // Still use mock losers for now
+                losers: mockLosers
               })
             }
           }
+        } else {
+          const errorText = await response.text()
+          console.error('Polygon API error:', response.status, errorText)
         }
 
         // Try to fetch losers

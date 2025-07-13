@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     // If we have a Polygon API key, try to fetch real data
     if (POLYGON_API_KEY) {
       try {
-        // Fetch S&P 500
+        // Fetch S&P 500 (using SPY ETF as proxy)
         const spxResponse = await fetch(
           `https://api.polygon.io/v2/aggs/ticker/SPY/prev?apiKey=${POLYGON_API_KEY}`
         )
@@ -44,18 +44,19 @@ export async function GET(request: NextRequest) {
           const spxData = await spxResponse.json()
           if (spxData.results?.[0]) {
             const result = spxData.results[0]
+            // SPY is approximately 1/10th of S&P 500 index
             mockIndices[0] = {
               symbol: 'SPX',
               name: 'S&P 500',
-              value: result.c,
-              change: result.c - result.o,
+              value: result.c * 10,
+              change: (result.c - result.o) * 10,
               changePercent: ((result.c - result.o) / result.o) * 100,
               lastUpdated: new Date(result.t).toISOString()
             }
           }
         }
 
-        // Fetch NASDAQ
+        // Fetch NASDAQ (using QQQ ETF as proxy)
         const qqqResponse = await fetch(
           `https://api.polygon.io/v2/aggs/ticker/QQQ/prev?apiKey=${POLYGON_API_KEY}`
         )
@@ -63,18 +64,19 @@ export async function GET(request: NextRequest) {
           const qqqData = await qqqResponse.json()
           if (qqqData.results?.[0]) {
             const result = qqqData.results[0]
+            // QQQ tracks NASDAQ-100, approximate NASDAQ Composite
             mockIndices[1] = {
               symbol: 'IXIC',
               name: 'NASDAQ',
-              value: result.c * 100, // Approximate conversion
-              change: (result.c - result.o) * 100,
+              value: result.c * 40, // Rough approximation
+              change: (result.c - result.o) * 40,
               changePercent: ((result.c - result.o) / result.o) * 100,
               lastUpdated: new Date(result.t).toISOString()
             }
           }
         }
 
-        // Fetch Dow Jones
+        // Fetch Dow Jones (using DIA ETF as proxy)
         const diaResponse = await fetch(
           `https://api.polygon.io/v2/aggs/ticker/DIA/prev?apiKey=${POLYGON_API_KEY}`
         )
@@ -82,10 +84,11 @@ export async function GET(request: NextRequest) {
           const diaData = await diaResponse.json()
           if (diaData.results?.[0]) {
             const result = diaData.results[0]
+            // DIA is approximately 1/100th of Dow Jones
             mockIndices[2] = {
               symbol: 'DJI',
               name: 'Dow Jones',
-              value: result.c * 100, // Approximate conversion
+              value: result.c * 100,
               change: (result.c - result.o) * 100,
               changePercent: ((result.c - result.o) / result.o) * 100,
               lastUpdated: new Date(result.t).toISOString()

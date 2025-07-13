@@ -28,6 +28,253 @@ import {
 } from 'lucide-react'
 import { PerformanceChart, DrawdownChart } from '@/components/charts/PerformanceChart'
 
+// Configuration Tab Component
+function ConfigurationTab({ agentId }: { agentId: string }) {
+  const [configuration, setConfiguration] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchConfiguration = async () => {
+      try {
+        const response = await fetch(`/api/agents/${agentId}/configuration`)
+        if (response.ok) {
+          const data = await response.json()
+          setConfiguration(data.configuration)
+        }
+      } catch (error) {
+        console.error('Error fetching configuration:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchConfiguration()
+  }, [agentId])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+        <p className="ml-4 text-gray-600">Loading configuration...</p>
+      </div>
+    )
+  }
+
+  if (!configuration) {
+    return (
+      <div className="card p-6">
+        <p className="text-gray-600">Configuration not found</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="card p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-semibold">Agent Configuration</h3>
+          <button className="btn-primary flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Edit Configuration
+          </button>
+        </div>
+        
+        <div className="space-y-8">
+          {/* Strategy Configuration */}
+          <div>
+            <h4 className="font-medium text-gray-900 mb-4">Strategy Settings</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <p className="text-sm text-gray-600">Traded Symbols</p>
+                <p className="font-medium">{configuration.symbols?.join(', ') || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Indicators</p>
+                <p className="font-medium">{configuration.indicators?.map((i: string) => i.toUpperCase().replace('_', ' ')).join(', ') || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Timeframe</p>
+                <p className="font-medium">{configuration.timeframe || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Max Positions</p>
+                <p className="font-medium">{configuration.max_positions || 5}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* AI Configuration */}
+          <div>
+            <h4 className="font-medium text-gray-900 mb-4">AI Model Settings</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <p className="text-sm text-gray-600">LLM Provider</p>
+                <p className="font-medium capitalize">{configuration.llm_provider || 'OpenAI'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Model</p>
+                <p className="font-medium">{configuration.llm_model || 'GPT-4'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Temperature</p>
+                <p className="font-medium">{configuration.temperature || 0.7}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Position Sizing</p>
+                <p className="font-medium capitalize">{configuration.position_sizing?.replace('_', ' ') || 'Equal Weight'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Risk Management */}
+          <div>
+            <h4 className="font-medium text-gray-900 mb-4">Risk Management</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <p className="text-sm text-gray-600">Stop Loss</p>
+                <p className="font-medium">{(configuration.exit_rules?.stop_loss * 100 || 5).toFixed(1)}%</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Take Profit</p>
+                <p className="font-medium">{(configuration.exit_rules?.take_profit * 100 || 15).toFixed(1)}%</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Max Drawdown</p>
+                <p className="font-medium">{(configuration.risk_management?.max_drawdown * 100 || 10).toFixed(1)}%</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Position Limit</p>
+                <p className="font-medium">{configuration.risk_management?.position_limit || 5}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Backtest Tab Component
+function BacktestTab({ agentId, formatCurrency, formatPercent }: { agentId: string, formatCurrency: (amount: number) => string, formatPercent: (percent: number) => string }) {
+  const [backtest, setBacktest] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchBacktest = async () => {
+      try {
+        const response = await fetch(`/api/agents/${agentId}/backtest`)
+        if (response.ok) {
+          const data = await response.json()
+          setBacktest(data.backtest)
+        }
+      } catch (error) {
+        console.error('Error fetching backtest:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchBacktest()
+  }, [agentId])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+        <p className="ml-4 text-gray-600">Loading backtest results...</p>
+      </div>
+    )
+  }
+
+  if (!backtest) {
+    return (
+      <div className="card p-6">
+        <p className="text-gray-600">No backtest results available</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="card p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-semibold">Backtest Results</h3>
+          <button className="btn-secondary flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Run New Backtest
+          </button>
+        </div>
+
+        {/* Backtest Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-gray-50 rounded-lg p-4">
+            <p className="text-sm text-gray-600 mb-1">Final Capital</p>
+            <p className="text-xl font-bold text-gray-900">{formatCurrency(backtest.final_capital)}</p>
+            <p className="text-sm text-emerald-600">{formatPercent(backtest.total_return_pct)}</p>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-4">
+            <p className="text-sm text-gray-600 mb-1">Total Trades</p>
+            <p className="text-xl font-bold text-gray-900">{backtest.total_trades}</p>
+            <p className="text-sm text-gray-600">{backtest.winning_trades}W / {backtest.losing_trades}L</p>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-4">
+            <p className="text-sm text-gray-600 mb-1">Sharpe Ratio</p>
+            <p className="text-xl font-bold text-gray-900">{backtest.sharpe_ratio?.toFixed(2) || 'N/A'}</p>
+            <p className="text-sm text-gray-600">Risk-adjusted</p>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-4">
+            <p className="text-sm text-gray-600 mb-1">Max Drawdown</p>
+            <p className="text-xl font-bold text-red-600">{formatPercent(backtest.max_drawdown || 0)}</p>
+            <p className="text-sm text-gray-600">Peak to trough</p>
+          </div>
+        </div>
+
+        {/* Backtest Performance Chart */}
+        {backtest.performance_data && backtest.performance_data.length > 0 && (
+          <div className="mb-8">
+            <h4 className="font-medium text-gray-900 mb-4">Backtest Performance</h4>
+            <PerformanceChart 
+              data={backtest.performance_data} 
+              title=""
+              showIndices={false}
+              height={300}
+            />
+          </div>
+        )}
+
+        {/* Performance by Symbol */}
+        {backtest.metrics_by_symbol && (
+          <div>
+            <h4 className="font-medium text-gray-900 mb-4">Performance by Symbol</h4>
+            <div className="overflow-hidden rounded-lg border">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Symbol</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trades</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Win Rate</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Return</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {Object.entries(backtest.metrics_by_symbol).map(([symbol, metrics]: [string, any]) => (
+                    <tr key={symbol}>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">{symbol}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{metrics.trades}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{metrics.win_rate.toFixed(1)}%</td>
+                      <td className="px-6 py-4 text-sm text-emerald-600">{formatCurrency(metrics.total_return)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 interface Agent {
   id: string
   name: string
@@ -607,177 +854,11 @@ export default function AgentDetailPage() {
         )}
 
         {activeTab === 'configuration' && (
-          <div className="space-y-6">
-            <div className="card p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold">Agent Configuration</h3>
-                <button className="btn-primary flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
-                  Edit Configuration
-                </button>
-              </div>
-              
-              <div className="space-y-8">
-                {/* Strategy Configuration */}
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-4">Strategy Settings</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <p className="text-sm text-gray-600">Traded Symbols</p>
-                      <p className="font-medium">NVDA, TSLA, META, GOOGL</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Indicators</p>
-                      <p className="font-medium">SMA 20, SMA 50, RSI, MACD</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Timeframe</p>
-                      <p className="font-medium">1 Day</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Max Positions</p>
-                      <p className="font-medium">5</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* AI Configuration */}
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-4">AI Model Settings</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <p className="text-sm text-gray-600">LLM Provider</p>
-                      <p className="font-medium">OpenAI</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Model</p>
-                      <p className="font-medium">GPT-4</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Temperature</p>
-                      <p className="font-medium">0.7</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Analysis Frequency</p>
-                      <p className="font-medium">Every 30 minutes</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Risk Management */}
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-4">Risk Management</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <p className="text-sm text-gray-600">Stop Loss</p>
-                      <p className="font-medium">5%</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Take Profit</p>
-                      <p className="font-medium">15%</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Max Drawdown</p>
-                      <p className="font-medium">10%</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Position Sizing</p>
-                      <p className="font-medium">Equal Weight</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <ConfigurationTab agentId={agentId} />
         )}
 
         {activeTab === 'backtest' && (
-          <div className="space-y-6">
-            <div className="card p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-semibold">Backtest Results</h3>
-                <button className="btn-secondary flex items-center gap-2">
-                  <RefreshCw className="h-4 w-4" />
-                  Run New Backtest
-                </button>
-              </div>
-
-              {/* Backtest Summary */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-1">Final Capital</p>
-                  <p className="text-xl font-bold text-gray-900">{formatCurrency(128453.67)}</p>
-                  <p className="text-sm text-emerald-600">+28.45%</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-1">Total Trades</p>
-                  <p className="text-xl font-bold text-gray-900">142</p>
-                  <p className="text-sm text-gray-600">89W / 53L</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-1">Sharpe Ratio</p>
-                  <p className="text-xl font-bold text-gray-900">1.82</p>
-                  <p className="text-sm text-gray-600">Risk-adjusted</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-1">Max Drawdown</p>
-                  <p className="text-xl font-bold text-red-600">-8.34%</p>
-                  <p className="text-sm text-gray-600">Peak to trough</p>
-                </div>
-              </div>
-
-              {/* Backtest Performance Chart */}
-              <div className="mb-8">
-                <h4 className="font-medium text-gray-900 mb-4">Backtest Performance</h4>
-                <div className="h-96 bg-gray-50 rounded-lg flex items-center justify-center">
-                  <p className="text-gray-500">Performance chart will be displayed here</p>
-                </div>
-              </div>
-
-              {/* Performance by Symbol */}
-              <div>
-                <h4 className="font-medium text-gray-900 mb-4">Performance by Symbol</h4>
-                <div className="overflow-hidden rounded-lg border">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Symbol</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trades</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Win Rate</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Return</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      <tr>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">NVDA</td>
-                        <td className="px-6 py-4 text-sm text-gray-900">15</td>
-                        <td className="px-6 py-4 text-sm text-gray-900">73.3%</td>
-                        <td className="px-6 py-4 text-sm text-emerald-600">{formatCurrency(9330)}</td>
-                      </tr>
-                      <tr>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">TSLA</td>
-                        <td className="px-6 py-4 text-sm text-gray-900">18</td>
-                        <td className="px-6 py-4 text-sm text-gray-900">61.1%</td>
-                        <td className="px-6 py-4 text-sm text-emerald-600">{formatCurrency(3430)}</td>
-                      </tr>
-                      <tr>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">META</td>
-                        <td className="px-6 py-4 text-sm text-gray-900">12</td>
-                        <td className="px-6 py-4 text-sm text-gray-900">66.7%</td>
-                        <td className="px-6 py-4 text-sm text-emerald-600">{formatCurrency(2760)}</td>
-                      </tr>
-                      <tr>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">GOOGL</td>
-                        <td className="px-6 py-4 text-sm text-gray-900">10</td>
-                        <td className="px-6 py-4 text-sm text-gray-900">70.0%</td>
-                        <td className="px-6 py-4 text-sm text-emerald-600">{formatCurrency(1512)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
+          <BacktestTab agentId={agentId} formatCurrency={formatCurrency} formatPercent={formatPercent} />
         )}
 
         {activeTab === 'analytics' && (
