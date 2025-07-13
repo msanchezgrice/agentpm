@@ -1,3 +1,5 @@
+'use client'
+
 import Link from 'next/link'
 import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
 import { TrendingUp, Bot, Shield, BarChart3, Zap, Users, Globe, Star, ArrowRight, Play } from 'lucide-react'
