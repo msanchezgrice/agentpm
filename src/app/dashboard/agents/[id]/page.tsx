@@ -23,8 +23,10 @@ import {
   Brain,
   Eye,
   EyeOff,
-  RefreshCw
+  RefreshCw,
+  Calendar
 } from 'lucide-react'
+import { PerformanceChart, DrawdownChart } from '@/components/charts/PerformanceChart'
 
 interface Agent {
   id: string
@@ -87,6 +89,9 @@ export default function AgentDetailPage() {
   const [error, setError] = useState('')
   const [positionsLoading, setPositionsLoading] = useState(false)
   const [expandedTrade, setExpandedTrade] = useState<string | null>(null)
+  const [performanceData, setPerformanceData] = useState<any[]>([])
+  const [performancePeriod, setPerformancePeriod] = useState('6months')
+  const [performanceLoading, setPerformanceLoading] = useState(false)
 
   // Fetch agent details
   useEffect(() => {
@@ -130,6 +135,28 @@ export default function AgentDetailPage() {
 
     fetchTrades()
   }, [activeTab, agentId])
+
+  // Fetch performance data when overview tab is active
+  useEffect(() => {
+    const fetchPerformance = async () => {
+      if (activeTab !== 'overview') return
+      
+      try {
+        setPerformanceLoading(true)
+        const response = await fetch(`/api/agents/${agentId}/performance?period=${performancePeriod}`)
+        if (!response.ok) throw new Error('Failed to fetch performance data')
+        
+        const data = await response.json()
+        setPerformanceData(data.performance || [])
+      } catch (err) {
+        console.error('Error fetching performance data:', err)
+      } finally {
+        setPerformanceLoading(false)
+      }
+    }
+
+    fetchPerformance()
+  }, [activeTab, agentId, performancePeriod])
 
   // Refresh positions with real-time prices
   const refreshPositions = async () => {
@@ -327,20 +354,74 @@ export default function AgentDetailPage() {
       <div className="space-y-6">
         {activeTab === 'overview' && (
           <div className="space-y-6">
+            {/* Performance Chart */}
             <div className="card p-6">
-              <h3 className="text-lg font-semibold mb-4">Performance Overview</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold">Performance vs Market Indices</h3>
+                <div className="flex gap-2">
+                  {['1month', '3months', '6months', '1year'].map((period) => (
+                    <button
+                      key={period}
+                      onClick={() => setPerformancePeriod(period)}
+                      className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                        performancePeriod === period
+                          ? 'bg-blue-100 text-blue-700 font-medium'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {period === '1month' ? '1M' : period === '3months' ? '3M' : period === '6months' ? '6M' : '1Y'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {performanceLoading ? (
+                <div className="flex items-center justify-center h-96">
+                  <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+                </div>
+              ) : performanceData.length > 0 ? (
+                <>
+                  <PerformanceChart 
+                    data={performanceData} 
+                    title="" 
+                    showIndices={true}
+                    height={400}
+                  />
+                  <div className="mt-8">
+                    <DrawdownChart data={performanceData} />
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-12">
+                  <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">No performance data available</p>
+                </div>
+              )}
+            </div>
+
+            {/* Risk Metrics */}
+            <div className="card p-6">
+              <h3 className="text-lg font-semibold mb-4">Risk Metrics</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div>
                   <p className="text-sm text-gray-600">Sharpe Ratio</p>
                   <p className="text-xl font-bold">{agent.sharpe_ratio?.toFixed(2) || 'N/A'}</p>
+                  <p className="text-xs text-gray-500 mt-1">Risk-adjusted returns</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Max Drawdown</p>
                   <p className="text-xl font-bold text-red-600">{formatPercent(agent.max_drawdown || 0)}</p>
+                  <p className="text-xs text-gray-500 mt-1">Largest peak-to-trough</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Risk Tolerance</p>
                   <p className="text-xl font-bold capitalize">{agent.risk_tolerance}</p>
+                  <p className="text-xs text-gray-500 mt-1">Strategy risk level</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Trading Frequency</p>
+                  <p className="text-xl font-bold capitalize">{agent.trading_frequency}</p>
+                  <p className="text-xs text-gray-500 mt-1">Trade execution rate</p>
                 </div>
               </div>
             </div>
