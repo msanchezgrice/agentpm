@@ -4,8 +4,10 @@ import { createClient } from '@supabase/supabase-js'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await context.params
+  
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   
@@ -28,7 +30,7 @@ export async function GET(
     const { data: config, error } = await supabase
       .from('agent_configurations')
       .select('*')
-      .eq('agent_id', params.id)
+      .eq('agent_id', id)
       .single()
 
     if (error && error.code !== 'PGRST116') {
@@ -40,7 +42,7 @@ export async function GET(
       // Return default configuration if none exists
       return NextResponse.json({
         configuration: {
-          agent_id: params.id,
+          agent_id: id,
           indicators: ['sma_20', 'sma_50', 'rsi'],
           timeframe: '1day',
           symbols: ['NVDA', 'TSLA', 'META'],
@@ -74,8 +76,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await context.params
+  
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   
@@ -100,7 +104,7 @@ export async function PUT(
     const { data: agent, error: agentError } = await supabase
       .from('agents')
       .select('user_id')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (agentError || !agent || agent.user_id !== userId) {
@@ -111,7 +115,7 @@ export async function PUT(
     const { data: config, error } = await supabase
       .from('agent_configurations')
       .upsert({
-        agent_id: params.id,
+        agent_id: id,
         ...updatedConfig,
         updated_at: new Date().toISOString()
       })
