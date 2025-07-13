@@ -68,7 +68,7 @@ WITH RECURSIVE daily_performance AS (
     -- Recursive generation
     SELECT 
         agent_id,
-        date + INTERVAL '1 day',
+        (date + INTERVAL '1 day')::date,
         -- Add some realistic daily volatility
         portfolio_value * (1 + daily_change),
         daily_change * 100,
