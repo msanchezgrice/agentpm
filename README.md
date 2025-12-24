@@ -34,12 +34,12 @@ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
 CLERK_SECRET_KEY=your_clerk_secret_key
 
 # Supabase (✅ Already configured)
-NEXT_PUBLIC_SUPABASE_URL=https://ohtlcngzfijkkihwgbhs.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
 # Polygon.io (✅ Already configured)
-POLYGON_API_KEY=n3drygFzi3curknaXQpOfzofSee28ABx
+POLYGON_API_KEY=your_polygon_api_key
 
 # Alpaca Markets (Required for trading)
 ALPACA_KEY_ID=your_alpaca_key_id
